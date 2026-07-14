@@ -75,9 +75,6 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later" },
 });
 
-// Handle CORS preflight BEFORE clerkMiddleware to avoid Clerk JWKS call on OPTIONS
-app.options("*", cors());
-
 // Health check is placed BEFORE clerkMiddleware so it never blocks
 // on Clerk's JWKS network call during cold starts.
 // Does NOT call connectDB — just reports whatever mongoose state is cached.
