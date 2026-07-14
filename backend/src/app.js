@@ -15,7 +15,7 @@ app.set("trust proxy", 1);
 
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
 // Clerk webhook must receive the raw body before JSON parsing happens.
@@ -28,7 +28,21 @@ app.post(
 app.use(helmet());
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow non-browser requests or missing origin headers
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/+$/, "");
+      if (
+        allowedOrigins.some(
+          (allowed) => allowed === cleanOrigin || allowed === "*",
+        )
+      ) {
+        return callback(null, cleanOrigin);
+      }
+      return callback(
+        new Error(`CORS origin violation: ${origin} not in allowed origins`),
+      );
+    },
     credentials: true,
   }),
 );

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { buildApiUrl } from "../../../lib/api";
 
 /**
  * useInstructorCourse
@@ -37,7 +38,7 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
         const token = await getToken();
 
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/courses/${courseId}`,
+          buildApiUrl(`/api/courses/${courseId}`),
           {
             headers: { Authorization: `Bearer ${token}` },
             credentials: "include",
@@ -111,7 +112,7 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
       const token = await getToken();
 
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/courses/${courseId}`,
+        buildApiUrl(`/api/courses/${courseId}`),
         {
           method: "PUT",
           headers: {

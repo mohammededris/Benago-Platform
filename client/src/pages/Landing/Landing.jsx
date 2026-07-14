@@ -9,6 +9,7 @@ import {
 } from "@clerk/react";
 import { useNavigate } from "react-router-dom";
 import { resolveRole } from "../../lib/roles";
+import { buildApiUrl } from "../../lib/api";
 import "./Landing.css";
 import Footer from "../../components/Footer/Footer";
 
@@ -51,7 +52,7 @@ export function Landing() {
 
           // ── Step 1: Try student sync ──────────────────────────────────────
           const studentRes = await fetch(
-            `${import.meta.env.VITE_API_URL}/api/students/sync`,
+            buildApiUrl("/api/students/sync"),
             {
               method: "POST",
               credentials: "include",
@@ -69,7 +70,7 @@ export function Landing() {
           } else if (studentRes.status === 404) {
             // ── Step 2: Not a student — try instructor sync ─────────────────
             const instructorRes = await fetch(
-              `${import.meta.env.VITE_API_URL}/api/instructors/sync`,
+              buildApiUrl("/api/instructors/sync"),
               {
                 method: "POST",
                 credentials: "include",
