@@ -10,6 +10,15 @@ async function syncStudent(req, res) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    const { sessionClaims } = getAuth(req);
+    const existingMetadata = sessionClaims?.publicMetadata || sessionClaims?.public_metadata;
+    if (existingMetadata?.role) {
+      return res.json({
+        role: existingMetadata.role,
+        courseId: existingMetadata.courseId ?? null,
+      });
+    }
+
     await connectDB();
 
     const clerkUser = await clerkClient.users.getUser(userId);
@@ -44,8 +53,10 @@ async function syncStudent(req, res) {
       },
     });
 
+    const [localPart, domainPart] = email.split("@");
+    const maskedEmail = localPart ? `${localPart[0]}***@${domainPart || ""}` : "***";
     console.log(
-      `Lazy sync: ${email} → student (course: ${registration.courseId})`,
+      `Lazy sync: ${maskedEmail} → student (course: ${registration.courseId})`,
     );
 
     res.json({ role: "student", courseId: String(registration.courseId) });

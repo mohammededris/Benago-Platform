@@ -12,8 +12,6 @@ async function clerkWebhookHandler(req, res) {
     return res.status(500).json({ error: "Webhook secret not configured" });
   }
 
-  await connectDB();
-
   const wh = new Webhook(secret);
   let evt;
 
@@ -27,11 +25,16 @@ async function clerkWebhookHandler(req, res) {
     return res.status(400).json({ error: "Invalid webhook signature" });
   }
 
+  // Connect to DB only after the webhook signature is verified
+  await connectDB();
+
   if (evt.type === "user.created" || evt.type === "user.updated") {
     const clerkUser = evt.data;
     const email = clerkUser.email_addresses?.[0]?.email_address?.toLowerCase();
 
     if (email) {
+      const [localPart, domainPart] = email.split("@");
+      const maskedEmail = localPart ? `${localPart[0]}***@${domainPart || ""}` : "***";
       try {
         const registration = await Registration.findOne({ email }).collation({
           locale: "en",
@@ -46,7 +49,7 @@ async function clerkWebhookHandler(req, res) {
             },
           });
           console.log(
-            `Webhook synced: ${email} → student (course: ${registration.courseId})`,
+            `Webhook synced: ${maskedEmail} → student (course: ${registration.courseId})`,
           );
           return res.status(200).json({ received: true });
         }
@@ -70,7 +73,7 @@ async function clerkWebhookHandler(req, res) {
           }
 
           console.log(
-            `Webhook synced: ${email} → instructor (courses: ${instructor.courseIds.join(", ")})`,
+            `Webhook synced: ${maskedEmail} → instructor (courses: ${instructor.courseIds.join(", ")})`,
           );
         }
       } catch (error) {

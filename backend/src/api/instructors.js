@@ -23,6 +23,15 @@ async function syncInstructor(req, res) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    const { sessionClaims } = getAuth(req);
+    const existingMetadata = sessionClaims?.publicMetadata || sessionClaims?.public_metadata;
+    if (existingMetadata?.role) {
+      return res.json({
+        role: existingMetadata.role,
+        courseIds: existingMetadata.courseIds ?? [],
+      });
+    }
+
     await connectDB();
 
     const clerkUser = await clerkClient.users.getUser(userId);
@@ -62,8 +71,10 @@ async function syncInstructor(req, res) {
       await instructor.save();
     }
 
+    const [localPart, domainPart] = email.split("@");
+    const maskedEmail = localPart ? `${localPart[0]}***@${domainPart || ""}` : "***";
     console.log(
-      `Lazy sync: ${email} → instructor (courses: ${instructor.courseIds.join(", ")})`,
+      `Lazy sync: ${maskedEmail} → instructor (courses: ${instructor.courseIds.join(", ")})`,
     );
 
     res.json({ role: "instructor", courseIds: instructor.courseIds });
@@ -98,8 +109,14 @@ async function updateInstructor(req, res) {
       return res.status(400).json({ error: messages.join("; ") });
     }
 
-    const callerClerkUser = await clerkClient.users.getUser(userId);
-    const callerRole = callerClerkUser.publicMetadata?.role;
+    const { sessionClaims } = getAuth(req);
+    const callerMetadata = sessionClaims?.publicMetadata || sessionClaims?.public_metadata;
+    let callerRole = callerMetadata?.role;
+
+    if (!callerRole) {
+      const callerClerkUser = await clerkClient.users.getUser(userId);
+      callerRole = callerClerkUser.publicMetadata?.role;
+    }
 
     if (callerRole !== "admin") {
       return res
@@ -123,6 +140,9 @@ async function updateInstructor(req, res) {
 
     await instructor.save();
 
+    const [instLocal, instDomain] = instructor.email ? instructor.email.split("@") : ["", ""];
+    const maskedInstructorEmail = instLocal ? `${instLocal[0]}***@${instDomain || ""}` : "***";
+
     if (instructor.clerkId) {
       await clerkClient.users.updateUserMetadata(instructor.clerkId, {
         publicMetadata: {
@@ -131,11 +151,11 @@ async function updateInstructor(req, res) {
         },
       });
       console.log(
-        `Admin updated instructor ${instructor.email} courses → [${instructor.courseIds.join(", ")}] and synced to Clerk`,
+        `Admin updated instructor ${maskedInstructorEmail} courses → [${instructor.courseIds.join(", ")}] and synced to Clerk`,
       );
     } else {
       console.log(
-        `Admin updated instructor ${instructor.email} courses → [${instructor.courseIds.join(", ")}] (Clerk sync pending next login)`,
+        `Admin updated instructor ${maskedInstructorEmail} courses → [${instructor.courseIds.join(", ")}] (Clerk sync pending next login)`,
       );
     }
 

@@ -40,7 +40,7 @@ export const router = createBrowserRouter([
       },
       { path: "not-registered", element: <NotRegistered /> },
       { path: "unauthorized", element: <Unauthorized /> },
-      
+      { path: "*", element: <Unauthorized /> },
     ],
   },
 ]);

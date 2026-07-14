@@ -6,9 +6,14 @@ import { router } from "./routes";
 import "./index.css";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const API_URL = import.meta.env.VITE_API_URL;
 
 if (!PUBLISHABLE_KEY) {
   throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables.");
+}
+
+if (!API_URL && import.meta.env.PROD) {
+  console.warn("VITE_API_URL is not set. API calls will default to relative paths.");
 }
 
 createRoot(document.getElementById("root")).render(

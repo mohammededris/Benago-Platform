@@ -20,6 +20,26 @@ const updateCourseSchema = Joi.object({
   videos: Joi.array().items(videoSchema).max(200),
 }).min(1);
 
+async function getUserRoleAndMetadata(req, userId) {
+  const { sessionClaims } = getAuth(req);
+  const metadata = sessionClaims?.publicMetadata || sessionClaims?.public_metadata;
+
+  if (metadata && metadata.role) {
+    return {
+      role: metadata.role,
+      courseId: metadata.courseId ?? null,
+      courseIds: metadata.courseIds ?? [],
+    };
+  }
+
+  const clerkUser = await clerkClient.users.getUser(userId);
+  return {
+    role: clerkUser.publicMetadata?.role,
+    courseId: clerkUser.publicMetadata?.courseId ?? null,
+    courseIds: clerkUser.publicMetadata?.courseIds ?? [],
+  };
+}
+
 async function getCourse(req, res) {
   try {
     const { userId } = getAuth(req);
@@ -38,10 +58,8 @@ async function getCourse(req, res) {
       return res.status(400).json({ error: "Invalid courseId format" });
     }
 
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const role = clerkUser.publicMetadata?.role;
-    const assignedCourseId = clerkUser.publicMetadata?.courseId;
-    const assignedCourseIds = clerkUser.publicMetadata?.courseIds ?? [];
+    const { role, courseId: assignedCourseId, courseIds: assignedCourseIds } =
+      await getUserRoleAndMetadata(req, userId);
 
     if (
       !role ||
@@ -125,9 +143,8 @@ async function updateCourse(req, res) {
       return res.status(400).json({ error: messages.join("; ") });
     }
 
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const role = clerkUser.publicMetadata?.role;
-    const assignedCourseIds = clerkUser.publicMetadata?.courseIds ?? [];
+    const { role, courseIds: assignedCourseIds } =
+      await getUserRoleAndMetadata(req, userId);
 
     if (!role || (role !== "admin" && role !== "instructor")) {
       return res

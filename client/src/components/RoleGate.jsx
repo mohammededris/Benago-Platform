@@ -6,7 +6,14 @@ export default function RoleGate({ allowedRoles, children }) {
   const { isLoaded, isSignedIn, user } = useUser();
   const location = useLocation();
 
-  if (!isLoaded) return <div>Loading…</div>;
+  if (!isLoaded) {
+    return (
+      <div className="state-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+        <div className="loading-spinner" />
+        <p style={{ marginTop: "16px", color: "#64748b", fontWeight: 500 }}>Authenticating...</p>
+      </div>
+    );
+  }
 
   if (!isSignedIn) {
     return <Navigate to="/" state={{ from: location }} replace />;

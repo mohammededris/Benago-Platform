@@ -89,15 +89,11 @@ export function Landing() {
               navigate("/not-registered", { replace: true });
               return;
             } else {
-              const body = await instructorRes.text().catch(() => "(no body)");
-              setSyncError(
-                `Instructor sync failed (${instructorRes.status}): ${body}`,
-              );
+              setSyncError("Account setup failed. Please try signing out and back in, or contact support.");
               return;
             }
           } else {
-            const body = await studentRes.text().catch(() => "(no body)");
-            setSyncError(`Sync failed (${studentRes.status}): ${body}`);
+            setSyncError("Account setup failed. Please try signing out and back in, or contact support.");
             return;
           }
         } catch (err) {

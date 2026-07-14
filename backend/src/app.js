@@ -11,6 +11,7 @@ const { getCourse, updateCourse } = require("./api/course");
 const { syncInstructor, updateInstructor } = require("./api/instructors");
 
 const app = express();
+app.set("trust proxy", 1);
 
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
   .split(",")
