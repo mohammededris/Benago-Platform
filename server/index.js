@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+const mongoose = require("mongoose");
 const rateLimit = require("express-rate-limit");
 const { clerkMiddleware } = require("@clerk/express");
 const connectDB = require("./lib/connectDB");
@@ -82,6 +83,37 @@ app.get("/api/courses/:courseId", apiLimiter, getCourse);
 // PUT /api/courses/:courseId — update course details & curriculum
 // Auth is checked inside the handler via getAuth(req)
 app.put("/api/courses/:courseId", apiLimiter, updateCourse);
+
+// ─── 3b. Health ───────────────────────────────────────────────────────────────
+app.get("/api/health", async (req, res) => {
+  const state = mongoose.connection.readyState;
+  const stateMap = {
+    0: "disconnected",
+    1: "connected",
+    2: "connecting",
+    3: "disconnecting",
+  };
+
+  let dbError = null;
+  if (state !== 1) {
+    try {
+      await connectDB();
+    } catch (err) {
+      dbError = err.message;
+    }
+  }
+
+  const finalState = mongoose.connection.readyState;
+  const finalStatus =
+    finalState === 1 ? "ok" : finalState === 2 ? "connecting" : "error";
+
+  res.status(finalState === 1 ? 200 : 503).json({
+    status: finalStatus,
+    db: stateMap[finalState] || "unknown",
+    timestamp: new Date().toISOString(),
+    ...(dbError ? { error: dbError } : {}),
+  });
+});
 
 // ─── 4. 404 Handler ──────────────────────────────────────────────────────────
 app.use((req, res) => {

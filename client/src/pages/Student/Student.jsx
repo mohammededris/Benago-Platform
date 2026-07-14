@@ -40,7 +40,6 @@ export default function StudentDashboard() {
             credentials: "include",
             mode: "cors",
           },
-          10000,
         );
 
         if (!res.ok) {

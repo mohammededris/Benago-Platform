@@ -17,7 +17,7 @@ export function buildApiUrl(endpoint) {
   return `${API_BASE_URL}${cleanEndpoint}`;
 }
 
-export async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+export async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 

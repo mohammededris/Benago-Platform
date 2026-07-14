@@ -46,7 +46,6 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
             credentials: "include",
             mode: "cors",
           },
-          10000,
         );
 
         if (!res.ok) {
@@ -138,7 +137,6 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
           credentials: "include",
           mode: "cors",
         },
-        10000,
       );
 
       if (!res.ok) {

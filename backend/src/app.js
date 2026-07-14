@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+const mongoose = require("mongoose");
 const rateLimit = require("express-rate-limit");
 const { clerkMiddleware } = require("@clerk/express");
 
@@ -63,6 +64,8 @@ app.use(
   }),
 );
 
+const connectDB = require("./lib/connectDB");
+
 const syncLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
@@ -77,6 +80,39 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later" },
+});
+
+app.get("/api/health", async (req, res) => {
+  const state = mongoose.connection.readyState;
+  const stateMap = {
+    0: "disconnected",
+    1: "connected",
+    2: "connecting",
+    3: "disconnecting",
+  };
+
+  const status = state === 1 ? "ok" : "degraded";
+  const statusCode = state === 1 ? 200 : 503;
+
+  let dbError = null;
+  if (state !== 1) {
+    try {
+      await connectDB();
+    } catch (err) {
+      dbError = err.message;
+    }
+  }
+
+  const finalState = mongoose.connection.readyState;
+  const finalStatus =
+    finalState === 1 ? "ok" : finalState === 2 ? "connecting" : "error";
+
+  res.status(finalState === 1 ? 200 : 503).json({
+    status: finalStatus,
+    db: stateMap[finalState] || "unknown",
+    timestamp: new Date().toISOString(),
+    ...(dbError ? { error: dbError } : {}),
+  });
 });
 
 app.post("/api/students/sync", syncLimiter, syncStudent);
