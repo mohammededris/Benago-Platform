@@ -15,10 +15,16 @@ async function connectDB() {
   }
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(process.env.MONGODB_URI).catch((err) => {
-      cached.promise = null;
-      throw err;
-    });
+    cached.promise = mongoose
+      .connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        socketTimeoutMS: 5000,
+      })
+      .catch((err) => {
+        cached.promise = null;
+        throw err;
+      });
   }
 
   cached.conn = await cached.promise;
