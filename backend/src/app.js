@@ -82,7 +82,7 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later" },
 });
 
-app.get("/api/health", async (req, res) => {
+app.get("/api/health", (req, res) => {
   const state = mongoose.connection.readyState;
   const stateMap = {
     0: "disconnected",
@@ -91,27 +91,10 @@ app.get("/api/health", async (req, res) => {
     3: "disconnecting",
   };
 
-  const status = state === 1 ? "ok" : "degraded";
-  const statusCode = state === 1 ? 200 : 503;
-
-  let dbError = null;
-  if (state !== 1) {
-    try {
-      await connectDB();
-    } catch (err) {
-      dbError = err.message;
-    }
-  }
-
-  const finalState = mongoose.connection.readyState;
-  const finalStatus =
-    finalState === 1 ? "ok" : finalState === 2 ? "connecting" : "error";
-
-  res.status(finalState === 1 ? 200 : 503).json({
-    status: finalStatus,
-    db: stateMap[finalState] || "unknown",
+  res.status(state === 1 ? 200 : 503).json({
+    status: state === 1 ? "ok" : "error",
+    db: stateMap[state] || "unknown",
     timestamp: new Date().toISOString(),
-    ...(dbError ? { error: dbError } : {}),
   });
 });
 

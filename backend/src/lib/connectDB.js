@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const CONNECTION_TIMEOUT_MS = 10000;
+const CONNECTION_TIMEOUT_MS = 5000;
 
 let cached = global.__benagoMongoCache;
 if (!cached) {
