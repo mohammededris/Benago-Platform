@@ -32,12 +32,17 @@ async function getUserRoleAndMetadata(req, userId) {
     };
   }
 
-  const clerkUser = await clerkClient.users.getUser(userId);
-  return {
-    role: clerkUser.publicMetadata?.role,
-    courseId: clerkUser.publicMetadata?.courseId ?? null,
-    courseIds: clerkUser.publicMetadata?.courseIds ?? [],
-  };
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    return {
+      role: clerkUser.publicMetadata?.role,
+      courseId: clerkUser.publicMetadata?.courseId ?? null,
+      courseIds: clerkUser.publicMetadata?.courseIds ?? [],
+    };
+  } catch (err) {
+    console.error(`Error fetching user ${userId} metadata from Clerk:`, err.message);
+    return { role: null, courseId: null, courseIds: [] };
+  }
 }
 
 async function getCourse(req, res) {

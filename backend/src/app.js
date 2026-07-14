@@ -13,10 +13,28 @@ const { syncInstructor, updateInstructor } = require("./api/instructors");
 const app = express();
 app.set("trust proxy", 1);
 
-const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
   .split(",")
   .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  const clean = origin.replace(/\/+$/, "");
+
+  if (allowedOrigins.length > 0) {
+    if (allowedOrigins.includes(clean) || allowedOrigins.includes("*")) {
+      return true;
+    }
+  }
+
+  // Default allowed origins for local dev and Vercel deployments
+  if (clean.startsWith("http://localhost:") || clean.endsWith(".vercel.app")) {
+    return true;
+  }
+
+  return false;
+};
 
 // Clerk webhook must receive the raw body before JSON parsing happens.
 app.post(
@@ -29,19 +47,10 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow non-browser requests or missing origin headers
-      if (!origin) return callback(null, true);
-      const cleanOrigin = origin.replace(/\/+$/, "");
-      if (
-        allowedOrigins.some(
-          (allowed) => allowed === cleanOrigin || allowed === "*",
-        )
-      ) {
-        return callback(null, cleanOrigin);
+      if (isAllowedOrigin(origin)) {
+        return callback(null, origin || true);
       }
-      return callback(
-        new Error(`CORS origin violation: ${origin} not in allowed origins`),
-      );
+      return callback(null, false);
     },
     credentials: true,
   }),
@@ -51,7 +60,6 @@ app.use(
   clerkMiddleware({
     secretKey: process.env.CLERK_SECRET_KEY,
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    authorizedParties: allowedOrigins,
   }),
 );
 
