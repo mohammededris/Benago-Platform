@@ -20,17 +20,17 @@ const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
   .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
+// If CLIENT_ORIGIN contains "*", allow every origin.
+const allowAll = allowedOrigins.includes("*");
+
 const isAllowedOrigin = (origin) => {
-  if (!origin) return true;
+  if (!origin) return true;       // same-origin / server-to-server
+  if (allowAll) return true;      // CLIENT_ORIGIN=*
   const clean = origin.replace(/\/+$/, "");
 
-  if (allowedOrigins.length > 0) {
-    if (allowedOrigins.includes(clean) || allowedOrigins.includes("*")) {
-      return true;
-    }
-  }
+  if (allowedOrigins.includes(clean)) return true;
 
-  // Default allowed origins for local dev and Vercel deployments
+  // Always allow local dev and any *.vercel.app preview URL
   if (clean.startsWith("http://localhost:") || clean.endsWith(".vercel.app")) {
     return true;
   }

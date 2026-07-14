@@ -25,25 +25,36 @@ app.post(
 
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
   .split(",")
-  .map((o) => o.trim())
+  .map((o) => o.trim().replace(/\/+$/, ""))
   .filter(Boolean);
+
+// If CLIENT_ORIGIN contains "*", allow every origin.
+const allowAll = allowedOrigins.includes("*");
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;       // same-origin / server-to-server
+  if (allowAll) return true;      // CLIENT_ORIGIN=*
+  const clean = origin.replace(/\/+$/, "");
+  if (allowedOrigins.includes(clean)) return true;
+  // Always permit local dev and any *.vercel.app preview URL
+  if (clean.startsWith("http://localhost:") || clean.endsWith(".vercel.app")) {
+    return true;
+  }
+  return false;
+};
 
 // ─── 2. Global Middleware ────────────────────────────────────────────────────
 app.use(helmet());  // Security headers (X-Content-Type-Options, HSTS, etc.)
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) return callback(null, origin || true);
+      return callback(null, false);
+    },
     credentials: true,
   }),
 );
 app.use(express.json({ limit: "100kb" }));  // Cap request body size
-app.use(
-  clerkMiddleware({
-    secretKey: process.env.CLERK_SECRET_KEY,
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    authorizedParties: allowedOrigins,
-  }),
-);
 
 // ─── 2b. Rate Limiters ──────────────────────────────────────────────────────
 // Strict limiter for sync endpoints (hit Clerk API on every call)
@@ -64,28 +75,14 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later" },
 });
 
-// POST /api/students/sync — lazy fallback role sync
-// Auth is checked inside the handler via getAuth(req)
-app.post("/api/students/sync", syncLimiter, syncStudent);
-
-// POST /api/instructors/sync — lazy fallback for instructors
-// Auth is checked inside the handler via getAuth(req)
-app.post("/api/instructors/sync", syncLimiter, syncInstructor);
-
-// PUT /api/instructors/:id — admin updates instructor courseIds (pushes to Clerk)
-// Auth is checked inside the handler via getAuth(req)
-app.put("/api/instructors/:id", apiLimiter, updateInstructor);
-
-// GET /api/courses/:courseId — fetch course details
-// Auth is checked inside the handler via getAuth(req)
-app.get("/api/courses/:courseId", apiLimiter, getCourse);
-
-// PUT /api/courses/:courseId — update course details & curriculum
-// Auth is checked inside the handler via getAuth(req)
-app.put("/api/courses/:courseId", apiLimiter, updateCourse);
-
-// ─── 3b. Health ───────────────────────────────────────────────────────────────
-app.get("/api/health", (req, res) => {
+// ─── 3b. Health ─────────────────────────────────────────────────────────────
+// Placed BEFORE clerkMiddleware so it never blocks on Clerk's JWKS fetch.
+app.get("/api/health", async (req, res) => {
+  try {
+    await connectDB();
+  } catch (_) {
+    // ignore — just report the state below
+  }
   const state = mongoose.connection.readyState;
   const stateMap = {
     0: "disconnected",
@@ -93,13 +90,27 @@ app.get("/api/health", (req, res) => {
     2: "connecting",
     3: "disconnecting",
   };
-
   res.status(state === 1 ? 200 : 503).json({
     status: state === 1 ? "ok" : "error",
     db: stateMap[state] || "unknown",
     timestamp: new Date().toISOString(),
   });
 });
+
+// clerkMiddleware is placed AFTER the health route intentionally.
+app.use(
+  clerkMiddleware({
+    secretKey: process.env.CLERK_SECRET_KEY,
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+  }),
+);
+
+// ─── 3. API Routes ───────────────────────────────────────────────────────────
+app.post("/api/students/sync", syncLimiter, syncStudent);
+app.post("/api/instructors/sync", syncLimiter, syncInstructor);
+app.put("/api/instructors/:id", apiLimiter, updateInstructor);
+app.get("/api/courses/:courseId", apiLimiter, getCourse);
+app.put("/api/courses/:courseId", apiLimiter, updateCourse);
 
 // ─── 4. 404 Handler ──────────────────────────────────────────────────────────
 app.use((req, res) => {
