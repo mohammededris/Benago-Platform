@@ -5,6 +5,7 @@ const helmet = require("helmet");
 const mongoose = require("mongoose");
 const rateLimit = require("express-rate-limit");
 const { clerkMiddleware } = require("@clerk/express");
+const connectDB = require("./lib/connectDB");
 
 const clerkWebhookHandler = require("./api/webhooks/clerk");
 const { syncStudent } = require("./api/students");
@@ -57,14 +58,6 @@ app.use(
   }),
 );
 app.use(express.json({ limit: "100kb" }));
-app.use(
-  clerkMiddleware({
-    secretKey: process.env.CLERK_SECRET_KEY,
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-  }),
-);
-
-const connectDB = require("./lib/connectDB");
 
 const syncLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -82,7 +75,14 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later" },
 });
 
-app.get("/api/health", (req, res) => {
+// Health check is placed BEFORE clerkMiddleware so it never blocks
+// on Clerk's JWKS network call during cold starts.
+app.get("/api/health", async (req, res) => {
+  try {
+    await connectDB();
+  } catch (_) {
+    // ignore connection errors — just report the state below
+  }
   const state = mongoose.connection.readyState;
   const stateMap = {
     0: "disconnected",
@@ -97,6 +97,13 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.use(
+  clerkMiddleware({
+    secretKey: process.env.CLERK_SECRET_KEY,
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+  }),
+);
 
 app.post("/api/students/sync", syncLimiter, syncStudent);
 app.post("/api/instructors/sync", syncLimiter, syncInstructor);
