@@ -77,12 +77,8 @@ const apiLimiter = rateLimit({
 
 // Health check is placed BEFORE clerkMiddleware so it never blocks
 // on Clerk's JWKS network call during cold starts.
-app.get("/api/health", async (req, res) => {
-  try {
-    await connectDB();
-  } catch (_) {
-    // ignore connection errors — just report the state below
-  }
+// Does NOT call connectDB — just reports whatever mongoose state is cached.
+app.get("/api/health", (req, res) => {
   const state = mongoose.connection.readyState;
   const stateMap = {
     0: "disconnected",
@@ -90,7 +86,6 @@ app.get("/api/health", async (req, res) => {
     2: "connecting",
     3: "disconnecting",
   };
-
   res.status(state === 1 ? 200 : 503).json({
     status: state === 1 ? "ok" : "error",
     db: stateMap[state] || "unknown",
