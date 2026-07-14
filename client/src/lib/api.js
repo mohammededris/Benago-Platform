@@ -2,7 +2,10 @@
  * Centralized API configuration & URL builder.
  * Ensures VITE_API_URL trailing slashes don't cause double slashes (e.g. //api/...)
  */
-export const API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(
+  /\/+$/,
+  "",
+);
 
 /**
  * Builds a full API URL given a relative endpoint path.
@@ -12,4 +15,18 @@ export const API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/+$/,
 export function buildApiUrl(endpoint) {
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   return `${API_BASE_URL}${cleanEndpoint}`;
+}
+
+export async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

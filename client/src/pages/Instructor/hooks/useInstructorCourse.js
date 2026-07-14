@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { buildApiUrl } from "../../../lib/api";
+import { buildApiUrl, fetchWithTimeout } from "../../../lib/api";
 
 /**
  * useInstructorCourse
@@ -27,7 +27,9 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
   useEffect(() => {
     async function loadCourse() {
       if (!courseId) {
-        setError("No course assigned to your instructor account. Please contact an administrator.");
+        setError(
+          "No course assigned to your instructor account. Please contact an administrator.",
+        );
         setLoading(false);
         return;
       }
@@ -37,18 +39,21 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
         setError(null);
         const token = await getToken();
 
-        const res = await fetch(
+        const res = await fetchWithTimeout(
           buildApiUrl(`/api/courses/${courseId}`),
           {
             headers: { Authorization: `Bearer ${token}` },
             credentials: "include",
             mode: "cors",
-          }
+          },
+          10000,
         );
 
         if (!res.ok) {
           if (res.status === 403)
-            throw new Error("Access Denied: You are not authorized to manage this course.");
+            throw new Error(
+              "Access Denied: You are not authorized to manage this course.",
+            );
           throw new Error("Failed to fetch course details.");
         }
 
@@ -57,7 +62,9 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
         setLocalTitle(data.title || "");
         setLocalDescription(data.description || "");
         setLocalInstructor(data.instructor || "");
-        setLocalVideos([...(data.videos || [])].sort((a, b) => a.order - b.order));
+        setLocalVideos(
+          [...(data.videos || [])].sort((a, b) => a.order - b.order),
+        );
       } catch (err) {
         setError(err.message);
       } finally {
@@ -71,7 +78,9 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
   // Whether the local state differs from the persisted course
   const isDirty = useMemo(() => {
     if (!course) return false;
-    const initialVideos = [...(course.videos || [])].sort((a, b) => a.order - b.order);
+    const initialVideos = [...(course.videos || [])].sort(
+      (a, b) => a.order - b.order,
+    );
 
     if (
       localTitle !== course.title ||
@@ -99,7 +108,7 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
   // Sum of all video durations (minutes)
   const totalCourseDuration = useMemo(
     () => localVideos.reduce((sum, v) => sum + Number(v.duration || 0), 0),
-    [localVideos]
+    [localVideos],
   );
 
   // Persist local state to the API
@@ -111,7 +120,7 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
       setSaveError(null);
       const token = await getToken();
 
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         buildApiUrl(`/api/courses/${courseId}`),
         {
           method: "PUT",
@@ -128,7 +137,8 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
           }),
           credentials: "include",
           mode: "cors",
-        }
+        },
+        10000,
       );
 
       if (!res.ok) {
@@ -152,19 +162,30 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
     } finally {
       setIsSaving(false);
     }
-  }, [courseId, getToken, localTitle, localDescription, localInstructor, totalCourseDuration, localVideos]);
+  }, [
+    courseId,
+    getToken,
+    localTitle,
+    localDescription,
+    localInstructor,
+    totalCourseDuration,
+    localVideos,
+  ]);
 
   // Discard local edits after confirmation
   const handleDiscardChanges = useCallback(() => {
     if (!course) return;
     openConfirm({
       title: "Discard Changes",
-      message: "Are you sure you want to discard all unsaved changes? This action cannot be undone.",
+      message:
+        "Are you sure you want to discard all unsaved changes? This action cannot be undone.",
       onConfirm: () => {
         setLocalTitle(course.title || "");
         setLocalDescription(course.description || "");
         setLocalInstructor(course.instructor || "");
-        setLocalVideos([...(course.videos || [])].sort((a, b) => a.order - b.order));
+        setLocalVideos(
+          [...(course.videos || [])].sort((a, b) => a.order - b.order),
+        );
       },
     });
   }, [course, openConfirm]);
@@ -174,26 +195,36 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
     setLocalVideos((prev) => {
       const updated = [...prev];
       if (direction === "up" && index > 0)
-        [updated[index], updated[index - 1]] = [updated[index - 1], updated[index]];
+        [updated[index], updated[index - 1]] = [
+          updated[index - 1],
+          updated[index],
+        ];
       else if (direction === "down" && index < updated.length - 1)
-        [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+        [updated[index], updated[index + 1]] = [
+          updated[index + 1],
+          updated[index],
+        ];
       return updated.map((v, i) => ({ ...v, order: i + 1 }));
     });
   }, []);
 
   // Remove a video after confirmation
-  const deleteVideo = useCallback((index) => {
-    openConfirm({
-      title: "Remove Lecture",
-      message: "Are you sure you want to remove this lecture from the curriculum? This cannot be undone.",
-      onConfirm: () => {
-        setLocalVideos((prev) => {
-          const updated = prev.filter((_, i) => i !== index);
-          return updated.map((v, i) => ({ ...v, order: i + 1 }));
-        });
-      },
-    });
-  }, [openConfirm]);
+  const deleteVideo = useCallback(
+    (index) => {
+      openConfirm({
+        title: "Remove Lecture",
+        message:
+          "Are you sure you want to remove this lecture from the curriculum? This cannot be undone.",
+        onConfirm: () => {
+          setLocalVideos((prev) => {
+            const updated = prev.filter((_, i) => i !== index);
+            return updated.map((v, i) => ({ ...v, order: i + 1 }));
+          });
+        },
+      });
+    },
+    [openConfirm],
+  );
 
   return {
     // Server state
@@ -201,10 +232,14 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
     error,
     loading,
     // Local editable fields
-    localTitle, setLocalTitle,
-    localDescription, setLocalDescription,
-    localInstructor, setLocalInstructor,
-    localVideos, setLocalVideos,
+    localTitle,
+    setLocalTitle,
+    localDescription,
+    setLocalDescription,
+    localInstructor,
+    setLocalInstructor,
+    localVideos,
+    setLocalVideos,
     // Computed
     isDirty,
     totalCourseDuration,

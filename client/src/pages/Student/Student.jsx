@@ -1,7 +1,7 @@
 import { useUser, useAuth } from "@clerk/react";
 import { useEffect, useState } from "react";
 import { resolveCourseId } from "../../lib/roles";
-import { buildApiUrl } from "../../lib/api";
+import { buildApiUrl, fetchWithTimeout } from "../../lib/api";
 import CourseViewer from "./components/CourseViewer";
 import "./Student.css";
 
@@ -19,7 +19,9 @@ export default function StudentDashboard() {
       if (!isLoaded) return;
 
       if (!courseId) {
-        setError("No course assigned to your account. Please contact an administrator.");
+        setError(
+          "No course assigned to your account. Please contact an administrator.",
+        );
         setLoading(false);
         return;
       }
@@ -29,23 +31,33 @@ export default function StudentDashboard() {
         setError(null);
         const token = await getToken();
 
-        const res = await fetch(buildApiUrl(`/api/courses/${courseId}`), {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const res = await fetchWithTimeout(
+          buildApiUrl(`/api/courses/${courseId}`),
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            credentials: "include",
+            mode: "cors",
           },
-          credentials: "include",
-          mode: "cors",
-        });
+          10000,
+        );
 
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          throw new Error(body.error || `Failed to fetch course details (${res.status})`);
+          throw new Error(
+            body.error || `Failed to fetch course details (${res.status})`,
+          );
         }
 
         const data = await res.json();
         setCourse(data);
       } catch (err) {
-        setError(err.message || "Network error loading workspace.");
+        if (err.name === "AbortError") {
+          setError("The course request timed out. Please try again.");
+        } else {
+          setError(err.message || "Network error loading workspace.");
+        }
       } finally {
         setLoading(false);
       }
