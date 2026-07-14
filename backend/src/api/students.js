@@ -1,0 +1,58 @@
+const { clerkClient, getAuth } = require("@clerk/express");
+const connectDB = require("../lib/connectDB");
+const Registration = require("../Schema/registrationSchema");
+
+async function syncStudent(req, res) {
+  try {
+    const { userId } = getAuth(req);
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    await connectDB();
+
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const existingRole = clerkUser.publicMetadata?.role;
+
+    if (existingRole) {
+      return res.json({
+        role: existingRole,
+        courseId: clerkUser.publicMetadata?.courseId ?? null,
+      });
+    }
+
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress?.toLowerCase();
+
+    if (!email) {
+      return res.status(400).json({ error: "No email found for this user" });
+    }
+
+    const registration = await Registration.findOne({ email }).collation({
+      locale: "en",
+      strength: 2,
+    });
+
+    if (!registration) {
+      return res.status(404).json({ error: "No matching account found" });
+    }
+
+    await clerkClient.users.updateUserMetadata(userId, {
+      publicMetadata: {
+        role: "student",
+        courseId: String(registration.courseId),
+      },
+    });
+
+    console.log(
+      `Lazy sync: ${email} → student (course: ${registration.courseId})`,
+    );
+
+    res.json({ role: "student", courseId: String(registration.courseId) });
+  } catch (err) {
+    console.error("syncStudent error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+module.exports = { syncStudent };
