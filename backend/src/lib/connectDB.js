@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const CONNECTION_TIMEOUT_MS = 5000;
+const CONNECTION_TIMEOUT_MS = 10000;
 
 let cached = global.__benagoMongoCache;
 if (!cached) {
@@ -22,6 +22,7 @@ async function connectDB() {
         serverSelectionTimeoutMS: CONNECTION_TIMEOUT_MS,
         connectTimeoutMS: CONNECTION_TIMEOUT_MS,
         socketTimeoutMS: CONNECTION_TIMEOUT_MS,
+        maxPoolSize: 10,
       })
       .catch((err) => {
         cached.promise = null;

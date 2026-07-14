@@ -30,8 +30,8 @@ const isAllowedOrigin = (origin) => {
 
   if (allowedOrigins.includes(clean)) return true;
 
-  // Always allow local dev and any *.vercel.app preview URL
-  if (clean.startsWith("http://localhost:") || clean.endsWith(".vercel.app")) {
+  // Always allow local dev and any *.vercel.app preview URL (no DNS lookup)
+  if (clean.startsWith("http://localhost:") || /\.vercel\.app$/.test(clean)) {
     return true;
   }
 
@@ -74,6 +74,9 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later" },
 });
+
+// Handle CORS preflight BEFORE clerkMiddleware to avoid Clerk JWKS call on OPTIONS
+app.options("*", cors());
 
 // Health check is placed BEFORE clerkMiddleware so it never blocks
 // on Clerk's JWKS network call during cold starts.
