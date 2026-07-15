@@ -25,13 +25,17 @@ const courseSchema = new Schema({
   },
   videos: [
     {
+      type: {
+        type: String,
+        enum: ["video", "text"],
+        default: "video",
+      },
       order: {
         type: Number,
         required: true,
       },
       url: {
         type: String,
-        required: true,
       },
       title: {
         type: String,
@@ -39,11 +43,13 @@ const courseSchema = new Schema({
       },
       duration: {
         type: Number,
-        required: true,
       },
       description: {
         type: String,
         required: true,
+      },
+      content: {
+        type: String,
       },
     },
   ],

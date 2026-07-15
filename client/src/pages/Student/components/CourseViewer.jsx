@@ -2,6 +2,7 @@ import { useState } from "react";
 import { UserButton } from "@clerk/react";
 import VideoPlayer from "./VideoPlayer";
 import VideoPlaylist from "./VideoPlaylist";
+import TextReader from "./TextReader";
 
 export default function CourseViewer({ course, user }) {
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -62,16 +63,20 @@ export default function CourseViewer({ course, user }) {
       <main className="course-viewer-grid">
         {/* Left Side: Video Player + Detailed Tabs */}
         <div className="course-main-content">
-          <VideoPlayer
-            key={activeVideo?.url ?? "no-video"}
-            video={activeVideo}
-          />
+          {activeVideo?.type === "text" ? (
+            <TextReader key={activeVideo?._id ?? "no-text"} item={activeVideo} />
+          ) : (
+            <VideoPlayer
+              key={activeVideo?.url ?? "no-video"}
+              video={activeVideo}
+            />
+          )}
 
           <div className="course-metadata-card">
             <div className="course-metadata-header">
               {activeVideo && (
                 <span className="current-video-index">
-                  Lecture {activeVideo.order}
+                  {activeVideo.type === "text" ? "Section" : "Lecture"} {activeVideo.order}
                 </span>
               )}
               <h2 className="current-video-title">
@@ -86,7 +91,7 @@ export default function CourseViewer({ course, user }) {
                   className={`tab-button ${activeTab === "video" ? "active" : ""}`}
                   onClick={() => setActiveTab("video")}
                 >
-                  Lecture Info
+                  Section Info
                 </button>
                 <button
                   className={`tab-button ${activeTab === "course" ? "active" : ""}`}
@@ -114,8 +119,7 @@ export default function CourseViewer({ course, user }) {
                           fontStyle: "italic",
                         }}
                       >
-                        No specific description provided for this lecture.
-                        Follow along with the video instruction.
+                        No specific description provided for this section.
                       </p>
                     )}
                   </div>

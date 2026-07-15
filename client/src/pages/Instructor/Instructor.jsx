@@ -202,7 +202,10 @@ export default function InstructorDashboard() {
         title={confirmDialog.title}
         message={confirmDialog.message}
         confirmLabel="Yes, proceed"
-        onConfirm={confirmDialog.onConfirm}
+        onConfirm={() => {
+          if (confirmDialog.onConfirm) confirmDialog.onConfirm();
+          closeConfirm();
+        }}
         onCancel={closeConfirm}
       />
 

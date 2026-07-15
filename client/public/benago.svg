@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="256" height="256">
+  <title>Benago Platform</title>
+  
+  <!-- Graduation Cap Skull -->
+  <path d="M 28 29 V 40 C 28 48 72 48 72 40 V 29" fill="none" stroke="#4e45e3" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Graduation Cap Top -->
+  <polygon points="50,12 78,24 50,36 22,24" fill="none" stroke="#4e45e3" stroke-width="6" stroke-linejoin="round"/>
+  
+  <!-- Graduation Cap Tassel -->
+  <line x1="78" y1="24" x2="78" y2="38" stroke="#4e45e3" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="78" cy="42" r="3" fill="#4e45e3"/>
+  
+  <!-- Graduation Cap Center Button -->
+  <circle cx="50" cy="24" r="3" fill="#4e45e3"/>
+  
+  <!-- Laptop Screen -->
+  <rect x="18" y="48" width="64" height="36" rx="4" fill="none" stroke="#4e45e3" stroke-width="6"/>
+  
+  <!-- Play Button -->
+  <polygon points="45,56 59,66 45,76" fill="#4e45e3" stroke="#4e45e3" stroke-width="4" stroke-linejoin="round"/>
+  
+  <!-- Laptop Base -->
+  <line x1="10" y1="90" x2="90" y2="90" stroke="#4e45e3" stroke-width="8" stroke-linecap="round"/>
+</svg>

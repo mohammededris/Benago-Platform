@@ -8,11 +8,13 @@ const Registration = require("../Schema/registrationSchema");
 const CLERK_API_TIMEOUT_MS = 8000;
 
 const videoSchema = Joi.object({
+  type: Joi.string().valid("video", "text").default("video"),
   order: Joi.number().integer().min(1).required(),
-  url: Joi.string().uri().max(2048).required(),
+  url: Joi.string().uri().max(2048).allow("", null).optional(),
   title: Joi.string().trim().max(200).required(),
-  duration: Joi.number().min(0).required(),
+  duration: Joi.number().min(0).allow(null).optional(),
   description: Joi.string().trim().max(2000).required(),
+  content: Joi.string().allow("", null).optional(),
 });
 
 const updateCourseSchema = Joi.object({

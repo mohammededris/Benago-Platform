@@ -14,7 +14,7 @@ export default function VideoModal({
       <div className="modal-content-card">
         <div className="modal-header">
           <h3 className="modal-title">
-            {mode === "add" ? "Add Lecture Video" : "Edit Lecture Video"}
+            {mode === "add" ? "Add Curriculum Section" : "Edit Curriculum Section"}
           </h3>
           <button className="modal-close-btn" onClick={onClose}>
             <svg
@@ -32,8 +32,31 @@ export default function VideoModal({
         </div>
 
         <form onSubmit={onSubmit} className="modal-form">
+          <div className="form-group" style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="sectionType"
+                value="video"
+                checked={videoForm.type === "video"}
+                onChange={() => onFormChange({ ...videoForm, type: "video" })}
+              />
+              Video Lecture
+            </label>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="sectionType"
+                value="text"
+                checked={videoForm.type === "text"}
+                onChange={() => onFormChange({ ...videoForm, type: "text" })}
+              />
+              Text Section
+            </label>
+          </div>
+
           <div className="form-group">
-            <label className="form-label required-field">Lecture Title</label>
+            <label className="form-label required-field">Section Title</label>
             <input
               type="text"
               className="form-input"
@@ -46,57 +69,75 @@ export default function VideoModal({
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label required-field">Video Embed URL</label>
-            <input
-              type="url"
-              className="form-input"
-              value={videoForm.url}
-              onChange={(e) =>
-                onFormChange({ ...videoForm, url: e.target.value })
-              }
-              placeholder="e.g. https://www.youtube.com/embed/dQw4w9WgXcQ"
-              required
-            />
-            <span className="field-hint">
-              Provide a standard embeddable video URL (e.g. YouTube /embed/
-              formats).
-            </span>
-          </div>
+          {videoForm.type === "video" ? (
+            <>
+              <div className="form-group">
+                <label className="form-label required-field">Video Embed URL</label>
+                <input
+                  type="url"
+                  className="form-input"
+                  value={videoForm.url || ""}
+                  onChange={(e) =>
+                    onFormChange({ ...videoForm, url: e.target.value })
+                  }
+                  placeholder="e.g. https://www.youtube.com/embed/dQw4w9WgXcQ"
+                  required={videoForm.type === "video"}
+                />
+                <span className="field-hint">
+                  Provide a standard embeddable video URL (e.g. YouTube /embed/
+                  formats).
+                </span>
+              </div>
 
-          <div className="form-grid-2">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label className="form-label required-field">
+                    Duration (Minutes)
+                  </label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={videoForm.duration || ""}
+                    onChange={(e) =>
+                      onFormChange({ ...videoForm, duration: e.target.value })
+                    }
+                    placeholder="e.g. 15"
+                    min="1"
+                    required={videoForm.type === "video"}
+                  />
+                </div>
+                {mode === "edit" && (
+                  <div className="form-group">
+                    <label className="form-label">Position / Order</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={`Lec ${editingVideoOrder}`}
+                      disabled
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
             <div className="form-group">
-              <label className="form-label required-field">
-                Duration (Minutes)
-              </label>
-              <input
-                type="number"
-                className="form-input"
-                value={videoForm.duration}
+              <label className="form-label required-field">Text Content</label>
+              <textarea
+                className="form-textarea"
+                value={videoForm.content || ""}
                 onChange={(e) =>
-                  onFormChange({ ...videoForm, duration: e.target.value })
+                  onFormChange({ ...videoForm, content: e.target.value })
                 }
-                placeholder="e.g. 15"
-                min="1"
-                required
+                placeholder="Enter the text content for this section"
+                rows="8"
+                required={videoForm.type === "text"}
               />
             </div>
-            {mode === "edit" && (
-              <div className="form-group">
-                <label className="form-label">Position / Order</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={`Lec ${editingVideoOrder}`}
-                  disabled
-                />
-              </div>
-            )}
-          </div>
+          )}
 
           <div className="form-group">
             <label className="form-label required-field">
-              Lecture Description
+              Short Description
             </label>
             <textarea
               className="form-textarea"
@@ -104,7 +145,7 @@ export default function VideoModal({
               onChange={(e) =>
                 onFormChange({ ...videoForm, description: e.target.value })
               }
-              placeholder="Enter a brief summary of what this video lecture covers"
+              placeholder="Enter a brief summary of what this section covers"
               rows="4"
               required
             />
@@ -119,7 +160,7 @@ export default function VideoModal({
               Cancel
             </button>
             <button type="submit" className="modal-submit-btn">
-              {mode === "add" ? "Add to Curriculum" : "Update Lecture"}
+              {mode === "add" ? "Add to Curriculum" : "Update Section"}
             </button>
           </div>
         </form>

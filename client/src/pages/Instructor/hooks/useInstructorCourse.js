@@ -97,7 +97,9 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
         lv.url !== iv.url ||
         lv.description !== iv.description ||
         lv.duration !== iv.duration ||
-        lv.order !== iv.order
+        lv.order !== iv.order ||
+        lv.type !== iv.type ||
+        lv.content !== iv.content
       )
         return true;
     }
