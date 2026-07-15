@@ -1,8 +1,11 @@
 const { getAuth, clerkClient } = require("@clerk/express");
+const { withTimeout } = require("../lib/withTimeout");
 const Joi = require("joi");
 const connectDB = require("../lib/connectDB");
 const Course = require("../Schema/courseSchema");
 const Registration = require("../Schema/registrationSchema");
+
+const CLERK_API_TIMEOUT_MS = 8000;
 
 const videoSchema = Joi.object({
   order: Joi.number().integer().min(1).required(),
@@ -24,6 +27,7 @@ async function getUserRoleAndMetadata(req, userId) {
   const { sessionClaims } = getAuth(req);
   const metadata = sessionClaims?.publicMetadata || sessionClaims?.public_metadata;
 
+  // Fast path: role is already in the JWT — no Clerk API call needed.
   if (metadata && metadata.role) {
     return {
       role: metadata.role,
@@ -32,8 +36,13 @@ async function getUserRoleAndMetadata(req, userId) {
     };
   }
 
+  // Slow path: role not in JWT — must call Clerk API. Guarded with a hard timeout.
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
+    const clerkUser = await withTimeout(
+      clerkClient.users.getUser(userId),
+      CLERK_API_TIMEOUT_MS,
+      "clerkClient.users.getUser (getUserRoleAndMetadata)",
+    );
     return {
       role: clerkUser.publicMetadata?.role,
       courseId: clerkUser.publicMetadata?.courseId ?? null,

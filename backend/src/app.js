@@ -22,8 +22,8 @@ const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
 const allowAll = allowedOrigins.includes("*");
 
 const isAllowedOrigin = (origin) => {
-  if (!origin) return true;      // same-origin / server-to-server
-  if (allowAll) return true;     // CLIENT_ORIGIN=*
+  if (!origin) return true;
+  if (allowAll) return true;
   const clean = origin.replace(/\/+$/, "");
   if (allowedOrigins.includes(clean)) return true;
   if (clean.startsWith("http://localhost:") || /\.vercel\.app$/.test(clean)) {
@@ -68,15 +68,39 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later" },
 });
 
-// ─── Clerk auth ──────────────────────────────────────────────────────────────
-// Note: /api/health is now handled directly in api/[...path].js (the Vercel
-// handler), so it never reaches this Express app at all.
+// ─── Diagnostic: BEFORE Clerk ─────────────────────────────────────────────────
+// Hit GET /api/ping to confirm Express + serverless-http work independently of Clerk.
+// If /api/ping times out → the issue is in Express or serverless-http.
+// If /api/ping is fast → the issue is in clerkMiddleware or Clerk API calls.
+app.get("/api/ping", (req, res) => {
+  res.json({
+    pong: true,
+    timestamp: new Date().toISOString(),
+    clerkSecretKeySet: !!process.env.CLERK_SECRET_KEY,
+    clerkPublishableKeySet: !!process.env.CLERK_PUBLISHABLE_KEY,
+    mongoUriSet: !!process.env.MONGODB_URI,
+  });
+});
+
+// ─── Clerk auth middleware ────────────────────────────────────────────────────
 app.use(
   clerkMiddleware({
     secretKey: process.env.CLERK_SECRET_KEY,
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
   }),
 );
+
+// ─── Diagnostic: AFTER Clerk ──────────────────────────────────────────────────
+// If /api/ping works but /api/auth-ping times out → clerkMiddleware is the problem.
+app.get("/api/auth-ping", (req, res) => {
+  const { getAuth } = require("@clerk/express");
+  const auth = getAuth(req);
+  res.json({
+    pong: true,
+    authenticated: !!auth.userId,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 app.post("/api/students/sync", syncLimiter, syncStudent);
@@ -92,7 +116,7 @@ app.use((req, res) => {
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error("[express error]", err.message);
   res.status(500).json({ error: "Internal server error" });
 });
 

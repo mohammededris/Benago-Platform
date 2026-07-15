@@ -1,6 +1,9 @@
 const { clerkClient, getAuth } = require("@clerk/express");
+const { withTimeout } = require("../lib/withTimeout");
 const connectDB = require("../lib/connectDB");
 const Registration = require("../Schema/registrationSchema");
+
+const CLERK_API_TIMEOUT_MS = 8000;
 
 async function syncStudent(req, res) {
   try {
@@ -21,7 +24,11 @@ async function syncStudent(req, res) {
 
     await connectDB();
 
-    const clerkUser = await clerkClient.users.getUser(userId);
+    const clerkUser = await withTimeout(
+      clerkClient.users.getUser(userId),
+      CLERK_API_TIMEOUT_MS,
+      "clerkClient.users.getUser (syncStudent)",
+    );
     const existingRole = clerkUser.publicMetadata?.role;
 
     if (existingRole) {
@@ -46,12 +53,16 @@ async function syncStudent(req, res) {
       return res.status(404).json({ error: "No matching account found" });
     }
 
-    await clerkClient.users.updateUserMetadata(userId, {
-      publicMetadata: {
-        role: "student",
-        courseId: String(registration.courseId),
-      },
-    });
+    await withTimeout(
+      clerkClient.users.updateUserMetadata(userId, {
+        publicMetadata: {
+          role: "student",
+          courseId: String(registration.courseId),
+        },
+      }),
+      CLERK_API_TIMEOUT_MS,
+      "clerkClient.users.updateUserMetadata (syncStudent)",
+    );
 
     const [localPart, domainPart] = email.split("@");
     const maskedEmail = localPart ? `${localPart[0]}***@${domainPart || ""}` : "***";

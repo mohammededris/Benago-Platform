@@ -1,7 +1,10 @@
 const { clerkClient, getAuth } = require("@clerk/express");
+const { withTimeout } = require("../lib/withTimeout");
 const Joi = require("joi");
 const connectDB = require("../lib/connectDB");
 const Instructor = require("../Schema/instructorSchema");
+
+const CLERK_API_TIMEOUT_MS = 8000;
 
 const updateInstructorSchema = Joi.object({
   courseIds: Joi.array()
@@ -34,7 +37,11 @@ async function syncInstructor(req, res) {
 
     await connectDB();
 
-    const clerkUser = await clerkClient.users.getUser(userId);
+    const clerkUser = await withTimeout(
+      clerkClient.users.getUser(userId),
+      CLERK_API_TIMEOUT_MS,
+      "clerkClient.users.getUser (syncInstructor)",
+    );
     const existingRole = clerkUser.publicMetadata?.role;
 
     if (existingRole) {
@@ -59,12 +66,16 @@ async function syncInstructor(req, res) {
       return res.status(404).json({ error: "No matching account found" });
     }
 
-    await clerkClient.users.updateUserMetadata(userId, {
-      publicMetadata: {
-        role: "instructor",
-        courseIds: instructor.courseIds,
-      },
-    });
+    await withTimeout(
+      clerkClient.users.updateUserMetadata(userId, {
+        publicMetadata: {
+          role: "instructor",
+          courseIds: instructor.courseIds,
+        },
+      }),
+      CLERK_API_TIMEOUT_MS,
+      "clerkClient.users.updateUserMetadata (syncInstructor)",
+    );
 
     if (!instructor.clerkId) {
       instructor.clerkId = userId;
@@ -114,7 +125,11 @@ async function updateInstructor(req, res) {
     let callerRole = callerMetadata?.role;
 
     if (!callerRole) {
-      const callerClerkUser = await clerkClient.users.getUser(userId);
+      const callerClerkUser = await withTimeout(
+        clerkClient.users.getUser(userId),
+        CLERK_API_TIMEOUT_MS,
+        "clerkClient.users.getUser (updateInstructor caller check)",
+      );
       callerRole = callerClerkUser.publicMetadata?.role;
     }
 
@@ -144,12 +159,16 @@ async function updateInstructor(req, res) {
     const maskedInstructorEmail = instLocal ? `${instLocal[0]}***@${instDomain || ""}` : "***";
 
     if (instructor.clerkId) {
-      await clerkClient.users.updateUserMetadata(instructor.clerkId, {
-        publicMetadata: {
-          role: "instructor",
-          courseIds: instructor.courseIds,
-        },
-      });
+      await withTimeout(
+        clerkClient.users.updateUserMetadata(instructor.clerkId, {
+          publicMetadata: {
+            role: "instructor",
+            courseIds: instructor.courseIds,
+          },
+        }),
+        CLERK_API_TIMEOUT_MS,
+        "clerkClient.users.updateUserMetadata (updateInstructor)",
+      );
       console.log(
         `Admin updated instructor ${maskedInstructorEmail} courses → [${instructor.courseIds.join(", ")}] and synced to Clerk`,
       );
