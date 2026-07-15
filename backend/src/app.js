@@ -67,21 +67,6 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later" },
 });
-
-// ─── Diagnostic: BEFORE Clerk ─────────────────────────────────────────────────
-// Hit GET /api/ping to confirm Express + serverless-http work independently of Clerk.
-// If /api/ping times out → the issue is in Express or serverless-http.
-// If /api/ping is fast → the issue is in clerkMiddleware or Clerk API calls.
-app.get("/api/ping", (req, res) => {
-  res.json({
-    pong: true,
-    timestamp: new Date().toISOString(),
-    clerkSecretKeySet: !!process.env.CLERK_SECRET_KEY,
-    clerkPublishableKeySet: !!process.env.CLERK_PUBLISHABLE_KEY,
-    mongoUriSet: !!process.env.MONGODB_URI,
-  });
-});
-
 // ─── Clerk auth middleware ────────────────────────────────────────────────────
 app.use(
   clerkMiddleware({
@@ -89,18 +74,6 @@ app.use(
     publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
   }),
 );
-
-// ─── Diagnostic: AFTER Clerk ──────────────────────────────────────────────────
-// If /api/ping works but /api/auth-ping times out → clerkMiddleware is the problem.
-app.get("/api/auth-ping", (req, res) => {
-  const { getAuth } = require("@clerk/express");
-  const auth = getAuth(req);
-  res.json({
-    pong: true,
-    authenticated: !!auth.userId,
-    timestamp: new Date().toISOString(),
-  });
-});
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 app.post("/api/students/sync", syncLimiter, syncStudent);
