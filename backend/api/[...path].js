@@ -1,14 +1,17 @@
 const serverless = require("serverless-http");
 const app = require("../src/app");
-const connectDB = require("../src/lib/connectDB");
+
+// ─── IMPORTANT ────────────────────────────────────────────────────────────────
+// Do NOT call connectDB() here at module init time.
+// A fire-and-forget connectDB() on the top level held the event loop open
+// indefinitely when Atlas was unreachable, causing every request—including
+// the lightweight /api/health check—to hit the 60-second function timeout.
+//
+// DB connections are now established lazily inside each route handler that
+// actually needs one (see src/lib/connectDB.js for the cached-connection logic).
+// ──────────────────────────────────────────────────────────────────────────────
 
 const handler = serverless(app);
-
-// Pre-warm the DB connection on cold start so the first real request
-// doesn't pay the full MongoDB handshake cost.
-connectDB().catch((err) => {
-  console.error("[cold-start] DB pre-warm failed:", err.message);
-});
 
 module.exports = async (req, res) => {
   return handler(req, res);
