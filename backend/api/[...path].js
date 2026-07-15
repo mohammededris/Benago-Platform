@@ -1,18 +1,36 @@
 const serverless = require("serverless-http");
-const app = require("../src/app");
 
-// ─── IMPORTANT ────────────────────────────────────────────────────────────────
-// Do NOT call connectDB() here at module init time.
-// A fire-and-forget connectDB() on the top level held the event loop open
-// indefinitely when Atlas was unreachable, causing every request—including
-// the lightweight /api/health check—to hit the 60-second function timeout.
-//
-// DB connections are now established lazily inside each route handler that
-// actually needs one (see src/lib/connectDB.js for the cached-connection logic).
-// ──────────────────────────────────────────────────────────────────────────────
-
-const handler = serverless(app);
+// ─── Lazy Express app loader ──────────────────────────────────────────────────
+// We load the Express app on the first non-health request so that module-init
+// work (Clerk client setup, mongoose schema registration, etc.) only runs once
+// per warm container. Health check is handled natively below.
+let _handler;
+function getHandler() {
+  if (!_handler) {
+    const app = require("../src/app");
+    _handler = serverless(app);
+  }
+  return _handler;
+}
 
 module.exports = async (req, res) => {
-  return handler(req, res);
+  // ── Fast-path health check ─────────────────────────────────────────────────
+  // Respond BEFORE loading Express/Mongoose/Clerk so the health endpoint is
+  // guaranteed to be instant regardless of DB or Clerk state.
+  const url = (req.url || "").split("?")[0];
+  if (url === "/api/health" || url === "/health") {
+    res.setHeader("Content-Type", "application/json");
+    res.statusCode = 200;
+    res.end(
+      JSON.stringify({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        region: process.env.VERCEL_REGION || "unknown",
+      }),
+    );
+    return;
+  }
+
+  // ── All other routes go through Express (Express 4 + serverless-http) ──────
+  return getHandler()(req, res);
 };
