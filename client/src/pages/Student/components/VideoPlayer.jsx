@@ -46,7 +46,9 @@ export default function VideoPlayer({ video }) {
       const videoId = match?.[1];
 
       if (videoId && videoId.length === 11) {
-        return `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0&modestbranding=1`;
+        // Appending the origin parameter prevents Error 150/153 on restrictive domains
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        return `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0&modestbranding=1&origin=${encodeURIComponent(origin)}`;
       }
     }
 
@@ -69,6 +71,7 @@ export default function VideoPlayer({ video }) {
           title={video.title}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
           onLoad={() => setIsLoading(false)}
           style={{
             opacity: isLoading ? 0 : 1,
