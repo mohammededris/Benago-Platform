@@ -31,4 +31,6 @@ registrationSchema.index(
   { unique: true, collation: { locale: "en", strength: 2 } },
 );
 
+registrationSchema.index({ courseId: 1, _id: 1 });
+
 module.exports = mongoose.model("Registration", registrationSchema);

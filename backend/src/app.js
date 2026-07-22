@@ -2,12 +2,13 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
-const { clerkMiddleware } = require("@clerk/express");
+const { ipKeyGenerator, rateLimit } = require("express-rate-limit");
+const { clerkMiddleware, getAuth } = require("@clerk/express");
+const { createRateLimitStore } = require("./lib/rateLimit");
 
 const clerkWebhookHandler = require("./api/webhooks/clerk");
 const { syncStudent } = require("./api/students");
-const { getCourse, updateCourse } = require("./api/course");
+const { getCourse, getCourseStudents, updateCourse } = require("./api/course");
 const { syncInstructor, updateInstructor } = require("./api/instructors");
 
 const app = express();
@@ -52,9 +53,21 @@ app.use(
 app.use(express.json({ limit: "100kb" }));
 
 // ─── Rate limiters ───────────────────────────────────────────────────────────
+const rateLimitKeyGenerator = (req) => {
+  try {
+    const { userId } = getAuth(req);
+    if (userId) return `user:${userId}`;
+  } catch (_) {
+    // Fall back to the proxy-aware IP key for unauthenticated requests.
+  }
+  return `ip:${ipKeyGenerator(req.ip)}`;
+};
+
 const syncLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
+  keyGenerator: rateLimitKeyGenerator,
+  store: createRateLimitStore(),
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later" },
@@ -63,6 +76,8 @@ const syncLimiter = rateLimit({
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
+  keyGenerator: rateLimitKeyGenerator,
+  store: createRateLimitStore(),
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later" },
@@ -80,6 +95,7 @@ app.post("/api/students/sync", syncLimiter, syncStudent);
 app.post("/api/instructors/sync", syncLimiter, syncInstructor);
 app.put("/api/instructors/:id", apiLimiter, updateInstructor);
 app.get("/api/courses/:courseId", apiLimiter, getCourse);
+app.get("/api/courses/:courseId/students", apiLimiter, getCourseStudents);
 app.put("/api/courses/:courseId", apiLimiter, updateCourse);
 
 // ─── 404 / Error handlers ────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 An educational platform connecting students and instructors, built with React (Vite), Express, MongoDB, and Clerk authentication. Deployed on Vercel with a split frontend/backend architecture.
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 Benago Platform/
@@ -45,7 +45,7 @@ Benago Platform/
 └── README.md
 ```
 
-## 🚀 Features
+## Features
 
 ### Student Features
 - Video player with playlist support
@@ -61,7 +61,7 @@ Benago Platform/
 - Role-based access control (Student, Instructor, Admin)
 - Clerk webhooks for user sync with MongoDB
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
@@ -75,8 +75,18 @@ Benago Platform/
 | **Webhooks** | Svix (Clerk webhooks) |
 | **Deployment** | Vercel (Frontend + Backend) |
 
+## Shared Rate Limiting
 
-## 📚 API Routes
+Production rate limiting uses Redis when `REDIS_URL` is configured. For Upstash, create a Redis database at [console.upstash.com](https://console.upstash.com), open **Redis Connect**, and copy the TLS connection URL into the backend/Vercel environment variables:
+
+```env
+REDIS_URL=rediss://default:<PASSWORD>@<DATABASE>.upstash.io:6379
+```
+
+Use the same variable for the local server if you want local requests to share limits with deployed instances. Without it, development falls back to per-process memory storage.
+
+
+## API Routes
 
 | Route | Description | Auth Required |
 |-------|-------------|---------------|
@@ -86,13 +96,13 @@ Benago Platform/
 | `GET /api/courses` | List courses | Public/Role-based |
 | `POST /api/webhooks/clerk` | Clerk webhook handler | Svix signature |
 
-## 📦 Database Schemas
+## Database Schemas
 
 - **Registration** - User registration & role assignment
 - **Instructor** - Instructor profile, courses, stats
 - **Course** - Course content, curriculum, enrollment
 
-## 🔐 Role-Based Access
+## Role-Based Access
 
 | Route | Student | Instructor | Admin |
 |-------|---------|------------|-------|
@@ -102,6 +112,6 @@ Benago Platform/
 
 Controlled via `RoleGate.jsx` component using Clerk's `user.privateMetadata.role`.
 
-## 📄 License
+## License
 
 ISC License - See individual package.json files for details.

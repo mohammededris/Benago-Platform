@@ -20,4 +20,6 @@ const instructorSchema = new Schema({
   },
 });
 
+instructorSchema.index({ email: 1 }, { collation: { locale: "en", strength: 2 } });
+
 module.exports = mongoose.model("Instructor", instructorSchema);

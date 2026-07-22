@@ -1,24 +1,37 @@
+/* eslint-disable react-refresh/only-export-components */
+import { lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
-import { Landing } from "./pages/Landing/Landing";
-import AdminDashboard from "./pages/Admin/Admin";
-import InstructorDashboard from "./pages/Instructor/Instructor";
-import StudentDashboard from "./pages/Student/Student";
 import { NotRegistered } from "./pages/NotRegistered";
 import { Unauthorized } from "./pages/Unauthorized";
 import RoleGate from "./components/RoleGate";
+
+const Landing = lazy(() =>
+  import("./pages/Landing/Landing").then((module) => ({ default: module.Landing })),
+);
+const AdminDashboard = lazy(() => import("./pages/Admin/Admin"));
+const InstructorDashboard = lazy(() => import("./pages/Instructor/Instructor"));
+const StudentDashboard = lazy(() => import("./pages/Student/Student"));
+
+function PageFallback() {
+  return <div className="state-container">Loading…</div>;
+}
+
+function LazyPage({ children }) {
+  return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
+}
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
     children: [
-      { index: true, element: <Landing /> },
+      { index: true, element: <LazyPage><Landing /></LazyPage> },
       {
         path: "admin",
         element: (
           <RoleGate allowedRoles={["admin"]}>
-            <AdminDashboard />
+            <LazyPage><AdminDashboard /></LazyPage>
           </RoleGate>
         ),
       },
@@ -26,7 +39,7 @@ export const router = createBrowserRouter([
         path: "instructor",
         element: (
           <RoleGate allowedRoles={["instructor"]}>
-            <InstructorDashboard />
+            <LazyPage><InstructorDashboard /></LazyPage>
           </RoleGate>
         ),
       },
@@ -34,7 +47,7 @@ export const router = createBrowserRouter([
         path: "student",
         element: (
           <RoleGate allowedRoles={["student"]}>
-            <StudentDashboard />
+            <LazyPage><StudentDashboard /></LazyPage>
           </RoleGate>
         ),
       },

@@ -34,7 +34,7 @@ async function getUserRoleAndMetadata(req, userId) {
     return {
       role: metadata.role,
       courseId: metadata.courseId ?? null,
-      courseIds: metadata.courseIds ?? [],
+      courseIds: Array.isArray(metadata.courseIds) ? metadata.courseIds : [],
     };
   }
 
@@ -48,7 +48,9 @@ async function getUserRoleAndMetadata(req, userId) {
     return {
       role: clerkUser.publicMetadata?.role,
       courseId: clerkUser.publicMetadata?.courseId ?? null,
-      courseIds: clerkUser.publicMetadata?.courseIds ?? [],
+      courseIds: Array.isArray(clerkUser.publicMetadata?.courseIds)
+        ? clerkUser.publicMetadata.courseIds
+        : [],
     };
   } catch (err) {
     console.error(`Error fetching user ${userId} metadata from Clerk:`, err.message);
@@ -103,29 +105,89 @@ async function getCourse(req, res) {
         });
     }
 
-    const course = await Course.findOne({ courseId: req.params.courseId });
+    const course = await Course.findOne({ courseId: req.params.courseId }).lean();
 
     if (!course) {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    const courseData = course.toObject();
-
     if (role === "admin" || role === "instructor") {
-      const registrations = await Registration.find({
+      course.enrollmentCount = await Registration.countDocuments({
         courseId: course.courseId,
-      }).lean();
-      courseData.studentsEnrolled = registrations.map((registration) => ({
+      });
+    }
+
+    res.json(course);
+  } catch (err) {
+    console.error("getCourse error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+async function getCourseStudents(req, res) {
+  try {
+    const { userId } = getAuth(req);
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { courseId } = req.params;
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(courseId || "")) {
+      return res.status(400).json({ error: "Invalid courseId format" });
+    }
+
+    const { role, courseIds: assignedCourseIds } =
+      await getUserRoleAndMetadata(req, userId);
+
+    if (!role || (role !== "admin" && role !== "instructor")) {
+      return res
+        .status(403)
+        .json({ error: "Forbidden: insufficient permissions" });
+    }
+
+    if (role === "instructor" && !assignedCourseIds.includes(courseId)) {
+      return res
+        .status(403)
+        .json({ error: "Forbidden: You are not authorized to view this course" });
+    }
+
+    const requestedPage = Number.parseInt(req.query.page, 10);
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const page = Number.isFinite(requestedPage) && requestedPage > 0
+      ? requestedPage
+      : 1;
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, 100)
+      : 25;
+
+    const filter = { courseId };
+    const [total, registrations] = await Promise.all([
+      Registration.countDocuments(filter),
+      Registration.find(filter)
+        .select({ name: 1, email: 1, status: 1 })
+        .sort({ _id: 1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    res.json({
+      students: registrations.map((registration) => ({
         studentId: registration._id.toString(),
         studentName: registration.name,
         email: registration.email,
         status: registration.status,
-      }));
-    }
-
-    res.json(courseData);
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (err) {
-    console.error("getCourse error:", err);
+    console.error("getCourseStudents error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -217,4 +279,4 @@ async function updateCourse(req, res) {
   }
 }
 
-module.exports = { getCourse, updateCourse };
+module.exports = { getCourse, getCourseStudents, updateCourse };

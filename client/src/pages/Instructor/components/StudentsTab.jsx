@@ -1,4 +1,10 @@
-export default function StudentsTab({ students }) {
+export default function StudentsTab({
+  students,
+  loading,
+  error,
+  pagination,
+  onPageChange,
+}) {
   return (
     <div className="tab-pane">
       <div className="pane-header">
@@ -11,7 +17,22 @@ export default function StudentsTab({ students }) {
         </div>
       </div>
 
-      {!students || students.length === 0 ? (
+      {loading ? (
+        <div className="empty-state-card">
+          <h4 className="empty-state-title">Loading Students…</h4>
+        </div>
+      ) : error ? (
+        <div className="empty-state-card">
+          <h4 className="empty-state-title">Unable to Load Students</h4>
+          <p className="empty-state-description">{error}</p>
+          <button
+            className="btn btn-outline"
+            onClick={() => onPageChange(pagination.page)}
+          >
+            Retry
+          </button>
+        </div>
+      ) : !students || students.length === 0 ? (
         <div className="empty-state-card">
           <div className="empty-state-visual">
             <svg
@@ -35,8 +56,9 @@ export default function StudentsTab({ students }) {
           </p>
         </div>
       ) : (
-        <div className="students-list-wrapper">
-          <table className="students-table">
+        <>
+          <div className="students-list-wrapper">
+            <table className="students-table">
             <thead>
               <tr>
                 <th>Student Name</th>
@@ -69,8 +91,30 @@ export default function StudentsTab({ students }) {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+          {pagination.totalPages > 1 && (
+            <div className="students-pagination">
+              <button
+                className="btn btn-outline"
+                disabled={pagination.page === 1}
+                onClick={() => onPageChange(pagination.page - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
+              </span>
+              <button
+                className="btn btn-outline"
+                disabled={pagination.page === pagination.totalPages}
+                onClick={() => onPageChange(pagination.page + 1)}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

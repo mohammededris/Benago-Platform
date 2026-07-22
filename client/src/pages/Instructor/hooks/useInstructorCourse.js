@@ -11,6 +11,15 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
   const [course, setCourse] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [students, setStudents] = useState([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentsError, setStudentsError] = useState(null);
+  const [studentsPagination, setStudentsPagination] = useState({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+  });
 
   // Local editable copies of course fields
   const [localTitle, setLocalTitle] = useState("");
@@ -73,6 +82,47 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
 
     loadCourse();
   }, [courseId, getToken]);
+
+  const loadStudents = useCallback(async (requestedPage = 1) => {
+    if (!courseId) return;
+
+    try {
+      setStudentsLoading(true);
+      setStudentsError(null);
+      setStudents([]);
+      const token = await getToken();
+      const params = new URLSearchParams({
+        page: String(requestedPage),
+        limit: String(studentsPagination.limit),
+      });
+
+      const res = await fetchWithTimeout(
+        buildApiUrl(`/api/courses/${courseId}/students?${params}`),
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+          mode: "cors",
+        },
+      );
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load enrolled students.");
+      }
+
+      setStudents(data.students || []);
+      setStudentsPagination(data.pagination || {
+        page: requestedPage,
+        limit: studentsPagination.limit,
+        total: data.students?.length || 0,
+        totalPages: 1,
+      });
+    } catch (err) {
+      setStudentsError(err.message || "Failed to load enrolled students.");
+    } finally {
+      setStudentsLoading(false);
+    }
+  }, [courseId, getToken, studentsPagination.limit]);
 
   // Whether the local state differs from the persisted course
   const isDirty = useMemo(() => {
@@ -231,6 +281,11 @@ export function useInstructorCourse({ courseId, getToken, openConfirm }) {
     course,
     error,
     loading,
+    students,
+    studentsLoading,
+    studentsError,
+    studentsPagination,
+    loadStudents,
     // Local editable fields
     localTitle,
     setLocalTitle,

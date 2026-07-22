@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useUser, useAuth } from "@clerk/react";
 import { resolveCourseIds } from "../../lib/roles";
 
@@ -38,6 +38,7 @@ export default function InstructorDashboard() {
 
   const {
     course, error, loading,
+    students, studentsLoading, studentsError, studentsPagination, loadStudents,
     localTitle, setLocalTitle,
     localDescription, setLocalDescription,
     localInstructor, setLocalInstructor,
@@ -47,6 +48,12 @@ export default function InstructorDashboard() {
     moveVideo, deleteVideo,
     isSaving, saveSuccess, saveError, setSaveError,
   } = useInstructorCourse({ courseId: selectedCourseId, getToken, openConfirm });
+
+  useEffect(() => {
+    if (activeTab === "students" && selectedCourseId) {
+      loadStudents(1);
+    }
+  }, [activeTab, selectedCourseId, loadStudents]);
 
   const {
     isModalOpen, modalMode, videoForm, setVideoForm,
@@ -129,7 +136,7 @@ export default function InstructorDashboard() {
       <InstructorStats
         totalDuration={totalCourseDuration}
         lecturesCount={localVideos.length}
-        enrolledCount={course?.studentsEnrolled?.length || 0}
+        enrolledCount={course?.enrollmentCount || 0}
       />
 
       <main className="workspace-container">
@@ -155,7 +162,13 @@ export default function InstructorDashboard() {
             />
           )}
           {activeTab === "students" && (
-            <StudentsTab students={course?.studentsEnrolled} />
+            <StudentsTab
+              students={students}
+              loading={studentsLoading}
+              error={studentsError}
+              pagination={studentsPagination}
+              onPageChange={loadStudents}
+            />
           )}
         </div>
       </main>

@@ -1,7 +1,41 @@
 const { getAuth, clerkClient } = require("@clerk/express");
+const { withTimeout } = require("../lib/withTimeout");
 const Joi = require("joi");
 const Course = require("../Schema/courseSchema");
 const Registration = require("../Schema/registrationSchema");
+
+const CLERK_API_TIMEOUT_MS = 8000;
+
+async function getUserRoleAndMetadata(req, userId) {
+  const { sessionClaims } = getAuth(req);
+  const metadata = sessionClaims?.publicMetadata || sessionClaims?.public_metadata;
+
+  if (metadata?.role) {
+    return {
+      role: metadata.role,
+      courseId: metadata.courseId ?? null,
+      courseIds: Array.isArray(metadata.courseIds) ? metadata.courseIds : [],
+    };
+  }
+
+  try {
+    const clerkUser = await withTimeout(
+      clerkClient.users.getUser(userId),
+      CLERK_API_TIMEOUT_MS,
+      "clerkClient.users.getUser (course authorization)",
+    );
+    return {
+      role: clerkUser.publicMetadata?.role,
+      courseId: clerkUser.publicMetadata?.courseId ?? null,
+      courseIds: Array.isArray(clerkUser.publicMetadata?.courseIds)
+        ? clerkUser.publicMetadata.courseIds
+        : [],
+    };
+  } catch (err) {
+    console.error(`Error fetching user ${userId} metadata:`, err.message);
+    return { role: null, courseId: null, courseIds: [] };
+  }
+}
 
 // ── Joi schemas for input validation ─────────────────────────────────────────
 const videoSchema = Joi.object({
@@ -46,11 +80,11 @@ async function getCourse(req, res) {
       return res.status(400).json({ error: "Invalid courseId format" });
     }
 
-    // Fetch the Clerk user to verify their role and assigned course
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const role = clerkUser.publicMetadata?.role;
-    const assignedCourseId = clerkUser.publicMetadata?.courseId;         // student (single)
-    const assignedCourseIds = clerkUser.publicMetadata?.courseIds ?? []; // instructor (array)
+    const {
+      role,
+      courseId: assignedCourseId,
+      courseIds: assignedCourseIds,
+    } = await getUserRoleAndMetadata(req, userId);
 
     if (!role || (role !== "admin" && role !== "instructor" && role !== "student")) {
       return res.status(403).json({ error: "Forbidden: Invalid or missing role" });
@@ -68,28 +102,89 @@ async function getCourse(req, res) {
         .json({ error: "Forbidden: You are not authorized to view this course" });
     }
 
-    const course = await Course.findOne({ courseId: req.params.courseId });
+    const course = await Course.findOne({ courseId: req.params.courseId }).lean();
 
     if (!course) {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    const courseData = course.toObject();
-
-    // Only include enrollment data for admins and instructors — never for students
     if (role === "admin" || role === "instructor") {
-      const registrations = await Registration.find({ courseId: course.courseId }).lean();
-      courseData.studentsEnrolled = registrations.map((r) => ({
-        studentId: r._id.toString(),
-        studentName: r.name,
-        email: r.email,
-        status: r.status,
-      }));
+      course.enrollmentCount = await Registration.countDocuments({
+        courseId: course.courseId,
+      });
     }
 
-    res.json(courseData);
+    res.json(course);
   } catch (err) {
     console.error("getCourse error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+async function getCourseStudents(req, res) {
+  try {
+    const { userId } = getAuth(req);
+
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { courseId } = req.params;
+    if (!/^[a-zA-Z0-9_-]{1,64}$/.test(courseId || "")) {
+      return res.status(400).json({ error: "Invalid courseId format" });
+    }
+
+    const { role, courseIds: assignedCourseIds } =
+      await getUserRoleAndMetadata(req, userId);
+
+    if (!role || (role !== "admin" && role !== "instructor")) {
+      return res
+        .status(403)
+        .json({ error: "Forbidden: insufficient permissions" });
+    }
+
+    if (role === "instructor" && !assignedCourseIds.includes(courseId)) {
+      return res
+        .status(403)
+        .json({ error: "Forbidden: You are not authorized to view this course" });
+    }
+
+    const requestedPage = Number.parseInt(req.query.page, 10);
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const page = Number.isFinite(requestedPage) && requestedPage > 0
+      ? requestedPage
+      : 1;
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, 100)
+      : 25;
+
+    const filter = { courseId };
+    const [total, registrations] = await Promise.all([
+      Registration.countDocuments(filter),
+      Registration.find(filter)
+        .select({ name: 1, email: 1, status: 1 })
+        .sort({ _id: 1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    res.json({
+      students: registrations.map((registration) => ({
+        studentId: registration._id.toString(),
+        studentName: registration.name,
+        email: registration.email,
+        status: registration.status,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
+    console.error("getCourseStudents error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -128,10 +223,8 @@ async function updateCourse(req, res) {
       return res.status(400).json({ error: messages.join("; ") });
     }
 
-    // Fetch the Clerk user to verify their role and assigned course
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const role = clerkUser.publicMetadata?.role;
-    const assignedCourseIds = clerkUser.publicMetadata?.courseIds ?? []; // instructor (array)
+    const { role, courseIds: assignedCourseIds } =
+      await getUserRoleAndMetadata(req, userId);
 
     if (!role || (role !== "admin" && role !== "instructor")) {
       return res.status(403).json({ error: "Forbidden: Invalid or insufficient permissions" });
@@ -184,5 +277,4 @@ async function updateCourse(req, res) {
   }
 }
 
-module.exports = { getCourse, updateCourse };
-
+module.exports = { getCourse, getCourseStudents, updateCourse };
