@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { ClerkProvider } from "@clerk/react";
 import { router } from "./routes";
+import { Analytics } from "@vercel/analytics/react"
 import "./index.css";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -20,6 +21,7 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
       <RouterProvider router={router} />
+      <Analytics />
     </ClerkProvider>
   </StrictMode>,
 );
